@@ -116,3 +116,5 @@ void residuals(std::vector<double>& x, std::vector<double>& y, std::vector<doubl
 
 // Fit a Lorentzian to a data set
 extern "C" _declspec(dllexport) void Lorentz_Fit(int n_data, double freq_data[], double spctrm_data[], double fit_data[], int n_pars, double a_pars[], int n_stats, double gof_stats[]);
+
+extern "C" _declspec(dllexport) void Testing();

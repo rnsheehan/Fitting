@@ -1060,3 +1060,9 @@ void Lorentz_Fit(int n_data, double freq_data[], double spctrm_data[], double fi
 	a_guess.clear(); ia.clear(); 
 	covar.clear(); alpha.clear(); 
 }
+
+void Testing()
+{
+	std::cout << "Hello World\n"; 
+	std::cout << "I am being run from the DLL\n\n";
+}
