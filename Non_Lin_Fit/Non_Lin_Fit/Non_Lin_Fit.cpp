@@ -18,6 +18,23 @@ double DSQR(double a)
 	return ((darg = (a)) == static_cast<double>(0) ? static_cast<double>(0) : darg * darg);
 }
 
+double convert_dBm_to_mW(double dBm_val)
+{
+	// convert a dBm power reading to a mW power reading
+	return pow( 10.0, (dBm_val / 10.0) ); 
+}
+
+double convert_mW_to_dBm(double mW_val)
+{
+	// convert a mW power reading to dBm power reading
+	if (mW_val > 1.0e-9) {
+		return 10.0 * log10(mW_val); 
+	}
+	else {
+		return -90.0; 
+	}
+}
+
 std::string toStringInt(const int& t)
 {
 	// This is just too convenient not to use
@@ -101,8 +118,6 @@ std::vector< std::vector< double > > array_2D(int& nrows, int& ncols)
 			return name;
 		}
 		else {
-			std::vector< std::vector< double > > temp;
-			return temp;
 			std::string reason = "Error: std::vector< std::vector< double > > lin_alg::array_2D\n";
 			if (nrows <= 1) reason += "nrows = " + toStringInt(nrows) + " too small\n";
 			if (ncols <= 1) reason += "ncols = " + toStringInt(ncols) + " too small\n";
@@ -110,6 +125,8 @@ std::vector< std::vector< double > > array_2D(int& nrows, int& ncols)
 		}
 	}
 	catch (std::invalid_argument& e) {
+		std::vector< std::vector< double > > temp;
+		return temp;
 		std::cerr << e.what();
 	}
 }
@@ -297,6 +314,7 @@ double gammln(double xx)
 		}
 	}
 	catch (std::invalid_argument& e) {
+		return 0.0; 
 		std::cerr << e.what();
 	}
 }
@@ -327,6 +345,7 @@ double gammq(double a, double x)
 		}
 	}
 	catch (std::invalid_argument& e) {
+		return 0.0; 
 		std::cerr << e.what();
 	}
 }
@@ -911,6 +930,7 @@ void residuals(std::vector<double>& x, std::vector<double>& y, std::vector<doubl
 	// store the results in data for later graphical analysis
 	// output array has the form {x, y, sig, f(x), res}
 	// R. Sheehan 21 - 10 - 2021
+
 	try {
 		bool c1 = ndata > 3 ? true : false;
 		bool c2 = (int)(x.size()) == ndata ? true : false;
@@ -954,4 +974,89 @@ void residuals(std::vector<double>& x, std::vector<double>& y, std::vector<doubl
 	catch (std::invalid_argument& e) {
 		std::cerr << e.what();
 	}
+}
+
+// Actual functions that will be called by external user of DLL
+
+// Fit a Lorentzian to a data set
+void Lorentz_Fit(int n_data, double freq_data[], double spctrm_data[], double fit_data[], int n_pars, double a_pars[], int n_stats, double gof_stats[])
+{
+	// Use non-lin-fit to fit the Lorentz model to a set of RSA spectrum data
+	// n_data is no. of data points in measurement
+	// freq_data[] is an array holding the frequency data, assumed to be in units of MHz
+	// spctrm_data[] is an array holding the measured ESA spectral data, assumed to be in units of dBm
+	// fit_data[] is an array that will store the computed values of the fitted model on output, assumed to be in units of dBm
+	// n_pars is the no. of fitting parameters, 3 in the case of the Lorentz fit
+	// a[] = {A, f_{0}, HWHM} is an array holding initial estimates of the fit parameters, this will be overwritten 
+	// with the fitted values on output
+	// n_stats is the number of goodness of fit statistics that are computed
+	// gof_stats[] = {chi^{2} value for fit, nu, R^{2} coefficient, gof probability } is an array that will store the computed goodness of fit stats on output
+	// R. Sheehan 4 - 11 - 2021
+
+	// Declare various parameters
+	int ITMAX = 10;
+
+	double TOL = 0.001;
+	double chisq = 0.0;
+
+	// Create std::vector for computing the fits
+	std::vector<double> x(n_data, 0.0); 
+	std::vector<double> y(n_data, 0.0); 
+	std::vector<double> sig(n_data, 0.0); 
+
+	// Declare the necessary arrays
+	std::vector<std::vector<double>> covar = array_2D(n_pars, n_pars);
+	std::vector<std::vector<double>> alpha = array_2D(n_pars, n_pars);
+
+	std::vector<std::vector<double>> data;
+
+	// define the initial guesses to the parameters to be determined
+	std::vector<double> a_guess(n_pars, 0.0);
+	std::vector<int> ia(n_pars, 1); // tell the algorithm that you want to locate all parameters 
+
+	// store the data in the vector containers
+	double spread = 0.05; 
+	for (int i = 0; i < n_data; i++) {
+		x[i] = freq_data[i]; 
+		y[i] = convert_dBm_to_mW( spctrm_data[i] ); // convert from dBm scale to mW scale
+		sig[i] = spread * y[i];
+	}
+
+	// store the initial guesses
+	for (int i = 0; i < n_pars; i++) {
+		a_guess[i] = a_pars[i]; 
+	}
+
+	// perform the fit process
+	non_lin_fit(x, y, sig, n_data, a_guess, ia, n_pars, covar, alpha, &chisq, Lorentzian, ITMAX, TOL, false);
+
+	// compute the residuals
+	residuals(x, y, sig, n_data, a_guess, n_pars, Lorentzian, data);
+
+	// take a look at the goodness of fit statistics
+	double chisqr = 0.0, rsqr = 0.0, dof = static_cast<int>(n_data - n_pars), gof = 0.0;
+	goodness_of_fit(x, y, data[4], n_data, a_guess, n_pars, Lorentzian, &chisqr, &dof, &rsqr, &gof);
+
+	// store the computed model values
+	for (int i = 0; i < n_data; i++) {
+		fit_data[i] = convert_mW_to_dBm( data[3][i] ); // convert from mW to dBm scale
+	}
+
+	// store the computed fit parameters
+	for (int i = 0; i < n_pars; i++) {
+		if (i == 0) {
+			a_pars[i] = convert_mW_to_dBm(a_guess[i]);
+		}
+		else {
+			a_pars[i] = a_guess[i];
+		}
+	}
+
+	// store the computed fit statistics
+	gof_stats[0] = chisqr; gof_stats[1] = dof; gof_stats[2] = rsqr; gof_stats[3] = gof;
+
+	// release memory
+	x.clear(); y.clear(); sig.clear(); data.clear(); 
+	a_guess.clear(); ia.clear(); 
+	covar.clear(); alpha.clear(); 
 }
