@@ -832,7 +832,7 @@ void mrqcof(std::vector<double>& x, std::vector<double>& y, std::vector<double>&
 	}
 }
 
-void goodness_of_fit(std::vector<double>& x, std::vector<double>& y, std::vector<double>& sig, int& ndata, std::vector<double>& a, int& ma, void(*funcs)(double, std::vector<double>&, double*, std::vector<double>&, int&), double* chisq, double* nu, double* rsqr, double* gof)
+void goodness_of_fit(std::vector<double>& x, std::vector<double>& y, std::vector<double>& sig, int& ndata, std::vector<double>& a, int& ma, void(*funcs)(double, std::vector<double>&, double*, std::vector<double>&, int&), double* chisq, double* nu, double* rsqr, double* gof, bool loud)
 {
 	// Given a set of data points x[0..na - 1], y[na - 1] with individual standard deviations sig[0..na-1] and a nonlinear function dependent on ma coefficients a[0..ma-1]
 	// Compute the value of chi^{2} for the fit, degrees of freedom nu = ndata - no. fitted parameters, the goodness of fit probability, R^{2} coefficient
@@ -899,12 +899,14 @@ void goodness_of_fit(std::vector<double>& x, std::vector<double>& y, std::vector
 			*rsqr = 1.0 - (ssres / sstot);
 			*gof = gammq(0.5 * (*nu), 0.5 * (*chisq)); // goodness of fit probability
 
-			std::cout << "\nGoodness-of-fit statistics\n";
-			std::cout << "The chi-sq value for the fit is " << *chisq << "\n";
-			std::cout << "nu for the fit is " << *nu << "\n";
-			std::cout << "chi-sq / nu = " << *chisq / *nu << "\n";
-			std::cout << "goodness of fit = " << *gof << "\n";
-			std::cout << "coefficient of determination = " << *rsqr << "\n\n";
+			if (loud) {
+				std::cout << "\nGoodness-of-fit statistics\n";
+				std::cout << "The chi-sq value for the fit is " << *chisq << "\n";
+				std::cout << "nu for the fit is " << *nu << "\n";
+				std::cout << "chi-sq / nu = " << *chisq / *nu << "\n";
+				std::cout << "goodness of fit = " << *gof << "\n";
+				std::cout << "coefficient of determination = " << *rsqr << "\n\n";
+			}
 		}
 		else {
 			std::string reason = "Error: fit::residuals()\n";
@@ -990,7 +992,7 @@ void Lorentz_Fit(int n_data, double freq_data[], double spctrm_data[], double fi
 	// a[] = {A, f_{0}, HWHM} is an array holding initial estimates of the fit parameters, this will be overwritten 
 	// with the fitted values on output
 	// n_stats is the number of goodness of fit statistics that are computed
-	// gof_stats[] = {chi^{2} value for fit, nu, R^{2} coefficient, gof probability } is an array that will store the computed goodness of fit stats on output
+	// gof_stats[] = {chi^{2} value for fit, chi^{2} / nu, R^{2} coefficient, gof probability } is an array that will store the computed goodness of fit stats on output
 	// R. Sheehan 4 - 11 - 2021
 
 	// Declare various parameters
@@ -1016,44 +1018,43 @@ void Lorentz_Fit(int n_data, double freq_data[], double spctrm_data[], double fi
 
 	// store the data in the vector containers
 	double spread = 0.05; 
+	double scale_fac = 1.0e+6; 
 	for (int i = 0; i < n_data; i++) {
 		x[i] = freq_data[i]; 
-		y[i] = convert_dBm_to_mW( spctrm_data[i] ); // convert from dBm scale to mW scale
+		y[i] = scale_fac * convert_dBm_to_mW( spctrm_data[i] ); // convert from dBm scale to mW scale
 		sig[i] = spread * y[i];
 	}
 
 	// store the initial guesses
+	ia[1] = 0; 
 	for (int i = 0; i < n_pars; i++) {
 		a_guess[i] = a_pars[i]; 
 	}
 
 	// perform the fit process
-	non_lin_fit(x, y, sig, n_data, a_guess, ia, n_pars, covar, alpha, &chisq, Lorentzian, ITMAX, TOL, false);
+	bool loud = false; 
+
+	non_lin_fit(x, y, sig, n_data, a_guess, ia, n_pars, covar, alpha, &chisq, Lorentzian, ITMAX, TOL, loud);
 
 	// compute the residuals
 	residuals(x, y, sig, n_data, a_guess, n_pars, Lorentzian, data);
 
 	// take a look at the goodness of fit statistics
 	double chisqr = 0.0, rsqr = 0.0, dof = static_cast<int>(n_data - n_pars), gof = 0.0;
-	goodness_of_fit(x, y, data[4], n_data, a_guess, n_pars, Lorentzian, &chisqr, &dof, &rsqr, &gof);
+	goodness_of_fit(x, y, data[4], n_data, a_guess, n_pars, Lorentzian, &chisqr, &dof, &rsqr, &gof, loud);
 
 	// store the computed model values
 	for (int i = 0; i < n_data; i++) {
-		fit_data[i] = convert_mW_to_dBm( data[3][i] ); // convert from mW to dBm scale
+		fit_data[i] = convert_mW_to_dBm( data[3][i] / scale_fac ); // convert from mW to dBm scale
 	}
 
 	// store the computed fit parameters
 	for (int i = 0; i < n_pars; i++) {
-		if (i == 0) {
-			a_pars[i] = convert_mW_to_dBm(a_guess[i]);
-		}
-		else {
-			a_pars[i] = a_guess[i];
-		}
+		a_pars[i] = a_guess[i];
 	}
 
 	// store the computed fit statistics
-	gof_stats[0] = chisqr; gof_stats[1] = dof; gof_stats[2] = rsqr; gof_stats[3] = gof;
+	gof_stats[0] = chisqr; gof_stats[1] = chisqr / dof; gof_stats[2] = rsqr; gof_stats[3] = gof;
 
 	// release memory
 	x.clear(); y.clear(); sig.clear(); data.clear(); 

@@ -106,7 +106,7 @@ void mrqcof(std::vector<double>& x, std::vector<double>& y, std::vector<double>&
 
 // Function for evaluating goodness-of-fit statistics
 //extern "C" NON_LIN_FIT_API 
-void goodness_of_fit(std::vector<double>& x, std::vector<double>& y, std::vector<double>& sig, int& ndata, std::vector<double>& a, int& ma, void(*funcs)(double, std::vector<double>&, double*, std::vector<double>&, int&), double* chisq, double* nu, double* rsqr, double* gof);
+void goodness_of_fit(std::vector<double>& x, std::vector<double>& y, std::vector<double>& sig, int& ndata, std::vector<double>& a, int& ma, void(*funcs)(double, std::vector<double>&, double*, std::vector<double>&, int&), double* chisq, double* nu, double* rsqr, double* gof, bool loud = false);
 
 // Function for computing the residual of a fit
 //extern "C" NON_LIN_FIT_API 
