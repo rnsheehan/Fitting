@@ -189,7 +189,7 @@ void Lorentzian_data_fit_test()
 	// Read in the measured spectral data
 	//std::string filename = "Sample_LLM.csv"; 
 	//std::string filename = "Lorentz_iodeal.csv"; // this is the same data set as Sample_LLM.csv
-	std::string filename = "Smpl_LLM_4.txt";
+	std::string filename = "Smpl_LLM_8.txt";
 
 	int npts, n_rows, npars = 3, n_cols, indx_max = 0;
 	long idum = (-1011);
@@ -214,7 +214,7 @@ void Lorentzian_data_fit_test()
 
 	// define the initial guesses to the parameters to be determined
 	std::vector<double> a_guess(npars, 0.0);
-	a_guess[0] = 1.5;
+	a_guess[0] = 10;
 	a_guess[1] = 80;
 	a_guess[2] = 1; // initial guesses for the parameters
 
