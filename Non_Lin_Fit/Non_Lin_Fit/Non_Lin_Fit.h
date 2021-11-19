@@ -2,14 +2,6 @@
 // This header file declares some functions perform various non-linear fits
 #pragma once
 
-#include <cstdlib>
-#include <iostream> // cout, cin, cerr
-#include <iomanip> // setw, setprecision, time
-#include <vector>
-#include <string>
-#include <sstream>
-#include <fstream>
-
 // preprocessor statements
 // The new project template for a DLL project adds PROJECTNAME_EXPORTS to the defined preprocessor macros. 
 // In this example, Visual Studio defines NON_LIN_FIT_EXPORTS when your NON_LIN_FIT DLL project is built.

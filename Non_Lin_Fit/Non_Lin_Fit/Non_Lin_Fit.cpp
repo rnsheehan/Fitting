@@ -1,11 +1,9 @@
 // Add an implementation to the DLL
-// MathLibrary.cpp : Defines the exported functions for the DLL.
+// Non_Lin_Fit.cpp : Defines the exported functions for the DLL.
 #include "pch.h" // use stdafx.h in Visual Studio 2017 and earlier
-#include <utility>
-#include <limits.h>
-#include "Non_Lin_Fit.h"
 
-// Function Definitions for the Functions declared in "mathLibrary.h"
+
+// Function Definitions for the Functions declared in "Non_Lin_Fit.h"
 
 // Useful Functions
 
@@ -33,7 +31,7 @@ double convert_mW_to_dBm(double mW_val)
 	else {
 		return -90.0; 
 	}
-}
+}   
 
 std::string toStringInt(const int& t)
 {
