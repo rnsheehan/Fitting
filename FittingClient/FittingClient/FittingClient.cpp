@@ -239,6 +239,7 @@ void Lorentzian_data_fit_test()
 	}
 
 	Lorentz_Fit(npts, freq_data, spctrm_data, fit_data, npars, a_pars, n_stats, gof_stats);
+	//Gauss_Fit(npts, freq_data, spctrm_data, fit_data, npars, a_pars, n_stats, gof_stats);
 
 	std::cout << "\nFitted centre freq: " << a_pars[1] << " MHz\n";
 	std::cout << "Computed peak val: " << a_pars[0] / a_pars[2] << " uW\n";

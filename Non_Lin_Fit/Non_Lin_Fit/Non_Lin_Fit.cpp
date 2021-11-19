@@ -261,7 +261,7 @@ void Gaussian(double x, std::vector<double>& a, double* y, std::vector<double>& 
 	// Definition of the Gaussian function to be fitted
 	// a stores Gaussian parameters a = { amplitude, mean, standard deviation} = {A, b, c}
 	// a[0] = A, a[1] = b, a[2] = c
-	// c is related the Gaussian half-width at half-maximum (i.e. linewidth) HWHM = sqrt{ 2 log(2) } c ~ 1.17741 c
+	// c is related to the Gaussian half-width at half-maximum (i.e. linewidth) HWHM = sqrt{ 2 log(2) } c ~ 1.17741 c
 	// Gaussian value is given by *y
 	// dyda is array that stores value of derivative of Lorentzian function wrt each parameter in a
 	// Dimensions of the arrays are a[0..na-1], dyda[0..na-1]
@@ -450,7 +450,6 @@ void gcf(double* gammcf, double a, double x, double* gln)
 }
 
 // Fitting Functions
-
 void covsrt(std::vector< std::vector< double > >& covar, int& ma, std::vector<int>& ia, int& mfit)
 {
 	// Expand in storage the covariance matrix covar, so as to take into account parameters that are
@@ -1026,7 +1025,7 @@ void Lorentz_Fit(int n_data, double freq_data[], double spctrm_data[], double fi
 	}
 
 	// store the initial guesses
-	ia[1] = 0; 
+	ia[1] = 0; // no sense in trying to fit to the centre frequency since you know its value already
 	for (int i = 0; i < n_pars; i++) {
 		a_guess[i] = a_pars[i]; 
 	}
@@ -1060,6 +1059,87 @@ void Lorentz_Fit(int n_data, double freq_data[], double spctrm_data[], double fi
 	x.clear(); y.clear(); sig.clear(); data.clear(); 
 	a_guess.clear(); ia.clear(); 
 	covar.clear(); alpha.clear(); 
+}
+
+void Gauss_Fit(int n_data, double freq_data[], double spctrm_data[], double fit_data[], int n_pars, double a_pars[], int n_stats, double gof_stats[])
+{
+	// Use non-lin-fit to fit the Lorentz model to a set of RSA spectrum data
+	// n_data is no. of data points in measurement
+	// freq_data[] is an array holding the frequency data, assumed to be in units of MHz
+	// spctrm_data[] is an array holding the measured ESA spectral data, assumed to be in units of dBm
+	// fit_data[] is an array that will store the computed values of the fitted model on output, assumed to be in units of dBm
+	// n_pars is the no. of fitting parameters, 3 in the case of the Gaussian fit
+	// a[] = {A, f_{0}, HWHM} is an array holding initial estimates of the fit parameters, this will be overwritten 
+	// with the fitted values on output
+	// n_stats is the number of goodness of fit statistics that are computed
+	// gof_stats[] = {chi^{2} value for fit, chi^{2} / nu, R^{2} coefficient, gof probability } is an array that will store the computed goodness of fit stats on output
+	// R. Sheehan 19 - 11 - 2021
+
+	// Declare various parameters
+	int ITMAX = 10;
+
+	double TOL = 0.001;
+	double chisq = 0.0;
+
+	// Create std::vector for computing the fits
+	std::vector<double> x(n_data, 0.0);
+	std::vector<double> y(n_data, 0.0);
+	std::vector<double> sig(n_data, 0.0);
+
+	// Declare the necessary arrays
+	std::vector<std::vector<double>> covar = array_2D(n_pars, n_pars);
+	std::vector<std::vector<double>> alpha = array_2D(n_pars, n_pars);
+
+	std::vector<std::vector<double>> data;
+
+	// define the initial guesses to the parameters to be determined
+	std::vector<double> a_guess(n_pars, 0.0);
+	std::vector<int> ia(n_pars, 1); // tell the algorithm that you want to locate all parameters 
+
+	// store the data in the vector containers
+	double spread = 0.05;
+	double scale_fac = 1.0e+6;
+	for (int i = 0; i < n_data; i++) {
+		x[i] = freq_data[i];
+		y[i] = scale_fac * convert_dBm_to_mW(spctrm_data[i]); // convert from dBm scale to mW scale
+		sig[i] = spread * y[i];
+	}
+
+	// store the initial guesses
+	ia[1] = 0; // no sense in trying to fit to the centre frequency since you know its value already
+	for (int i = 0; i < n_pars; i++) {
+		a_guess[i] = a_pars[i];
+	}
+
+	// perform the fit process
+	bool loud = false;
+
+	non_lin_fit(x, y, sig, n_data, a_guess, ia, n_pars, covar, alpha, &chisq, Gaussian, ITMAX, TOL, loud);
+
+	// compute the residuals
+	residuals(x, y, sig, n_data, a_guess, n_pars, Gaussian, data);
+
+	// take a look at the goodness of fit statistics
+	double chisqr = 0.0, rsqr = 0.0, dof = static_cast<int>(n_data - n_pars), gof = 0.0;
+	goodness_of_fit(x, y, data[4], n_data, a_guess, n_pars, Gaussian, &chisqr, &dof, &rsqr, &gof, loud);
+
+	// store the computed model values
+	for (int i = 0; i < n_data; i++) {
+		fit_data[i] = convert_mW_to_dBm(data[3][i] / scale_fac); // convert from mW to dBm scale
+	}
+
+	// store the computed fit parameters
+	for (int i = 0; i < n_pars; i++) {
+		a_pars[i] = a_guess[i];
+	}
+
+	// store the computed fit statistics
+	gof_stats[0] = chisqr; gof_stats[1] = chisqr / dof; gof_stats[2] = rsqr; gof_stats[3] = gof;
+
+	// release memory
+	x.clear(); y.clear(); sig.clear(); data.clear();
+	a_guess.clear(); ia.clear();
+	covar.clear(); alpha.clear();
 }
 
 void Testing()
