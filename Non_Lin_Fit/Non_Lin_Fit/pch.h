@@ -20,6 +20,7 @@
 #include <utility>
 #include <limits.h>
 
+#include "Faddeeva.hh"
 #include "Non_Lin_Fit.h"
 
 #endif //PCH_H

@@ -16,6 +16,14 @@ double DSQR(double a)
 	return ((darg = (a)) == static_cast<double>(0) ? static_cast<double>(0) : darg * darg);
 }
 
+double Signum(double a)
+{
+	// The sign operator
+	double darg;
+	//return ((darg=(a))==0.0?0.0:(darg=(a))>=0.0?1.0:-1.0);
+	return ((darg = (a)) >= 0.0 ? 1.0 : -1.0); // Setting the Sign of zero to be 1
+}
+
 double convert_dBm_to_mW(double dBm_val)
 {
 	// convert a dBm power reading to a mW power reading
@@ -281,6 +289,154 @@ void Gaussian(double x, std::vector<double>& a, double* y, std::vector<double>& 
 	}
 }
 
+void Voigt(double x, std::vector<double>& a, double* y, std::vector<double>& dyda, int& na)
+{
+	// Definition of the Voigt function to be fitted
+	// a stores Voigt parameters a = { h, x_{centre}, g, sigma}
+	// a[0] = h, a[1] = x_{centre}, a[2] = g, a[3] = sigma
+	// h is an amplitude fitting factor
+	// x_centre is the centre of the Voigt frunction
+	// g is the half-width at half-maximum of the Lorentzian portion of Voigt
+	// sigma is the std. dev. of the Gaussian portion of Voigt HWHM_{Gauss} = sqrt( 2 log(2) ) c
+	// It should be possible to express HWHM_{Voigt} in terms of g and sigma
+	// Voigt value is given by *y
+	// dyda is array that stores value of derivative of Voigt function wrt each parameter in a
+	// Dimensions of the arrays are a[0..na-1], dyda[0..na-1]
+	// na is no. parameters
+	// R. Sheehan 30 - 11 - 2021
+
+	try {
+		static const double p = (atan(1.0)); // pi / 4
+		static const double Two_PI = (8.0 * p); // 2 pi
+		static const double PI = (4.0 * p); // pi
+		static const double SQRT_PI = sqrt(PI);
+
+		std::complex<double> eye(0.0, 1.0);
+		std::complex<double> z = ((x - a[1] + eye * a[2]) / a[3]); // z = (x - x_{0} + i g) / sigma
+		std::complex<double> W = Faddeeva::w(z); // w(z) = exp(-z^{2}) Erfc(-i z)
+		std::complex<double> dW = ((2.0 * eye) / SQRT_PI) - (2.0 * z * W); // dw / dz by definition
+		double h_sig = a[0] / a[3]; // h / sigma
+
+		*y = real(a[0] * W); // V = re( h w(z) )
+		dyda[0] = real(W); // \partial V / \partial h
+		dyda[1] = real(-1.0 * h_sig * dW); // \partial V / \partial x_{0} = - \partial V / \partial x
+		dyda[2] = real(eye * h_sig * dW); // \partial V / \partial g
+		dyda[3] = real(-1.0 * h_sig * z * dW); // \partial V / \partial sigma
+	}
+	catch (std::invalid_argument& e) {
+		std::cerr << e.what();
+	}
+}
+
+void Voigt_HWHM(double xlow, double xhigh, std::vector<double>& a, int& na, double* HWHM, bool loud)
+{
+	// determine the HWHM of a Voigt function with the parameter set defined in a
+	// use bisection method algorithm to look for the HWHM on the interval [xlow, xhigh]
+	// a stores Voigt parameters a = { h, x_{centre}, g, sigma}
+	// a[0] = h, a[1] = x_{centre}, a[2] = g, a[3] = sigma
+	// h is an amplitude fitting factor
+	// x_centre is the centre of the Voigt frunction
+	// g is the half-width at half-maximum of the Lorentzian portion of Voigt
+	// sigma is the std. dev. of the Gaussian portion of Voigt HWHM_{Gauss} = sqrt( 2 log(2) ) c
+	// parameters in a will have been determined by Levenberg-Marquardt non-linear fit procedure
+	// result will be stored in HWHM
+	// R. Sheehan 1 - 12 - 2021
+
+	try {
+
+		bool c1 = xhigh > xlow ? true : false;
+		bool c2 = xlow > 0 ? true : false;
+		bool c3 = a[3] > 0 ? true : false;
+		bool c10 = c1 && c2;
+
+		if (c10) {
+			int count = 0, MAXIT = 50; // max. no iterations of bisection method
+			bool converged = false;
+			double TOL = 1.0e-3; // desired accuracy of root computation
+			double root = xlow, left = xlow, right = xhigh, dx = 0.0, fl = 0.0, fr = 0.0;
+			double lor_gau = a[2] / a[3]; // g_{lor} / sigma_{gau}
+			double Vmax_half = 0.5 * ( a[0] * exp(DSQR(lor_gau)) * erffc(lor_gau) ); // half the peak value of the Voigt function
+
+			if (loud)std::cout << "Peak value: " << 2.0 * Vmax_half << "\n";
+
+			std::vector<double> dyda(na, 0.0);
+
+			// subtract the peak value since you're looking for point where Voigt = 0.5*Vmax
+
+			Voigt(left, a, &fl, dyda, na); fl -= Vmax_half; // compute the value of the function at the interval endpoints
+			Voigt(right, a, &fr, dyda, na); fr -= Vmax_half; // compute the value of the function at the interval endpoints 
+			fl = Signum(fl); fr = Signum(fr);
+
+			// test the interval to ensure it contains a root ivttest == -1 => interval has root
+			if ( (fl * fr) < 0.0) {
+
+				// the interval contains a root, search can proceed
+				if (loud)std::cout << "Initial approximation to the root is " << root << ", fl = " << fl << " , fr = " << fr << "\n";
+
+				// Compute MAXIT iterations of BisectRoot, stop if the desired tolerance is reached
+				count = 0;
+				while (count < MAXIT) {
+
+					// Compute the amount by which the root position must be updated
+					dx = 0.5 * (right - left);
+
+					// Update the position of the root
+					root = left + dx;
+
+					if (loud)std::cout << "Iteration: " << count << ", root = " << root << ", fl = " << fl << " , fr = " << fr << "\n";
+
+					// Test for convergence
+					if (fabs(dx) < TOL) {
+						if (loud)std::cout << "Bisection has converged to a root within tolerance " << TOL << " after " << count << " iterations\n";
+						converged = true;
+						break;
+					}
+					else {
+						// Update the endpoints of the interval containing the root
+						Voigt(root, a, &fr, dyda, na); fr -= Vmax_half; fr = Signum(fr);
+						
+						if ( (fl * fr) > 0.0) {
+							left = root;
+							fl = fr;
+						}
+						else {
+							right = root;
+						}
+					}
+
+					count++;
+				}
+
+				if (converged) {
+					if (loud)std::cout << "Root is located at " << root << "\n";
+					*HWHM = fabs(root - a[1]);
+				}
+				else {
+					if (loud)std::cout << "Bisection has not converged to a root within tolerance " << TOL << " after " << count << " iterations\n";
+					*HWHM = fabs(root - a[1]);
+				}
+			}
+			else {
+				// the interval contains no root, search cannot proceed
+				std::string reason;
+				reason = "Error: testing::Voigt_FWHM()\n";
+				reason += "Search interval improperly defined\n";
+				throw std::invalid_argument(reason);
+			}
+		}
+		else {
+			std::string reason;
+			reason = "Error: testing::Voigt_FWHM()\n";
+			if (!c1 || !c2) reason += "Search interval improperly defined\n";
+			if (!c3) reason += "Voigt parameters improperly defined\n";
+			throw std::invalid_argument(reason);
+		}
+	}
+	catch (std::invalid_argument& e) {
+		std::cerr << e.what();
+	}
+}
+
 // Probability Functions
 
 double gammln(double xx)
@@ -344,6 +500,37 @@ double gammq(double a, double x)
 	}
 	catch (std::invalid_argument& e) {
 		return 0.0; 
+		std::cerr << e.what();
+	}
+}
+
+double gammp(double a, double x)
+{
+	// Computes the incomplete gamma function P(a,x) from the functions gser and gcf
+
+	try {
+		if (x > 0.0 && a > 0.0) {
+			double gamser, gammcf, gln;
+
+			if (x < (a + 1.0)) {
+				gser(&gamser, a, x, &gln);
+				return gamser;
+			}
+			else {
+				gcf(&gammcf, a, x, &gln);
+				return 1.0 - gammcf;
+			}
+		}
+		else {
+			std::string reason;
+			reason = "Error: double probability::gammp(double a,double x)\n";
+			if (x < 0.0) reason += "x input with value = " + toStringDouble(x, 2) + "\n";
+			if (a <= 0.0) reason += "a input with value = " + toStringDouble(a, 2) + "\n";
+			throw std::invalid_argument(reason);
+		}
+	}
+	catch (std::invalid_argument& e) {
+		return 0.0;
 		std::cerr << e.what();
 	}
 }
@@ -445,6 +632,13 @@ void gcf(double* gammcf, double a, double x, double* gln)
 	catch (std::invalid_argument& e) {
 		std::cerr << e.what();
 	}
+}
+
+double erffc(double x)
+{
+	// Return the complementary error function erfc(x)
+
+	return (x < 0.0 ? 1.0 + gammp(0.5, DSQR(x)) : gammq(0.5, DSQR(x)));
 }
 
 // Fitting Functions
@@ -1120,6 +1314,94 @@ void Gauss_Fit(int n_data, double freq_data[], double spctrm_data[], double fit_
 	// take a look at the goodness of fit statistics
 	double chisqr = 0.0, rsqr = 0.0, dof = static_cast<int>(n_data - n_pars), gof = 0.0;
 	goodness_of_fit(x, y, data[4], n_data, a_guess, n_pars, Gaussian, &chisqr, &dof, &rsqr, &gof, loud);
+
+	// store the computed model values
+	for (int i = 0; i < n_data; i++) {
+		fit_data[i] = convert_mW_to_dBm(data[3][i] / scale_fac); // convert from mW to dBm scale
+	}
+
+	// store the computed fit parameters
+	for (int i = 0; i < n_pars; i++) {
+		a_pars[i] = a_guess[i];
+	}
+
+	// store the computed fit statistics
+	gof_stats[0] = chisqr; gof_stats[1] = chisqr / dof; gof_stats[2] = rsqr; gof_stats[3] = gof;
+
+	// release memory
+	x.clear(); y.clear(); sig.clear(); data.clear();
+	a_guess.clear(); ia.clear();
+	covar.clear(); alpha.clear();
+}
+
+void Voigt_Fit(int n_data, double freq_data[], double spctrm_data[], double fit_data[], int n_pars, double a_pars[], int n_stats, double gof_stats[], double* HWHM)
+{
+	// Use non-lin-fit to fit the Voigt model to a set of RSA spectrum data
+	// n_data is no. of data points in measurement
+	// freq_data[] is an array holding the frequency data, assumed to be in units of MHz
+	// spctrm_data[] is an array holding the measured ESA spectral data, assumed to be in units of dBm
+	// fit_data[] is an array that will store the computed values of the fitted model on output, assumed to be in units of dBm
+	// n_pars is the no. of fitting parameters, 4 in the case of the Voigt fit
+	// a[] = {h, f_{0}, g_{Lor}, sigma_{Gau}} is an array holding initial estimates of the fit parameters, this will be overwritten 
+	// with the fitted values on output
+	// n_stats is the number of goodness of fit statistics that are computed
+	// gof_stats[] = {chi^{2} value for fit, chi^{2} / nu, R^{2} coefficient, gof probability } is an array that will store the computed goodness of fit stats on output
+	// HWHM will store the computed Voigt profile HWHM
+	// R. Sheehan 1 - 12 - 2021
+
+	// Declare various parameters
+	int ITMAX = 10;
+
+	double TOL = 0.001;
+	double chisq = 0.0;
+
+	// Create std::vector for computing the fits
+	std::vector<double> x(n_data, 0.0);
+	std::vector<double> y(n_data, 0.0);
+	std::vector<double> sig(n_data, 0.0);
+
+	// Declare the necessary arrays
+	std::vector<std::vector<double>> covar = array_2D(n_pars, n_pars);
+	std::vector<std::vector<double>> alpha = array_2D(n_pars, n_pars);
+
+	std::vector<std::vector<double>> data;
+
+	// define the initial guesses to the parameters to be determined
+	std::vector<double> a_guess(n_pars, 0.0);
+	std::vector<int> ia(n_pars, 1); // tell the algorithm that you want to locate all parameters 
+
+	// store the data in the vector containers
+	double spread = 0.05;
+	double scale_fac = 1.0e+6;
+	for (int i = 0; i < n_data; i++) {
+		x[i] = freq_data[i];
+		y[i] = scale_fac * convert_dBm_to_mW(spctrm_data[i]); // convert from dBm scale to mW scale
+		sig[i] = spread * y[i];
+	}
+
+	// store the initial guesses
+	ia[1] = 0; // no sense in trying to fit to the centre frequency since you know its value already
+	for (int i = 0; i < n_pars; i++) {
+		a_guess[i] = a_pars[i];
+	}
+
+	// perform the fit process
+	bool loud = false;
+
+	non_lin_fit(x, y, sig, n_data, a_guess, ia, n_pars, covar, alpha, &chisq, Voigt, ITMAX, TOL, loud);
+
+	// compute the Voigt HWHM
+	double xlow = a_guess[1], xhigh = xlow + 10;
+
+	Voigt_HWHM(xlow, xhigh, a_guess, n_pars, HWHM);
+
+	// compute the residuals
+	residuals(x, y, sig, n_data, a_guess, n_pars, Voigt, data);
+
+	// take a look at the goodness of fit statistics
+	double chisqr = 0.0, rsqr = 0.0, dof = static_cast<int>(n_data - n_pars), gof = 0.0;
+
+	goodness_of_fit(x, y, data[4], n_data, a_guess, n_pars, Voigt, &chisqr, &dof, &rsqr, &gof, loud);
 
 	// store the computed model values
 	for (int i = 0; i < n_data; i++) {

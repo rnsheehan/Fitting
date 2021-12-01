@@ -27,6 +27,8 @@
 //extern "C" NON_LIN_FIT_API 
 double DSQR(double a);
 
+double Signum(double a); 
+
 double convert_dBm_to_mW(double dBm_val); 
 
 double convert_mW_to_dBm(double mW_val); 
@@ -53,14 +55,22 @@ void Lorentzian(double x, std::vector<double>&a, double* y, std::vector<double>&
 
 void Gaussian(double x, std::vector<double>& a, double* y, std::vector<double>& dyda, int& na);
 
+void Voigt(double x, std::vector<double>& a, double* y, std::vector<double>& dyda, int& na); 
+
+void Voigt_HWHM(double xlow, double xhigh, std::vector<double>& a, int& na, double* HWHM, bool loud = false); 
+
 // Probability Functions
 double gammln(double x); // Computes the value of ln[gamma(xx)] for xx>0
+
+double gammp(double a, double x); // Computes the incomplete gamma function P(a,x) from the functions gser and gcf
 
 double gammq(double a, double x); // Computes the incomplete gamma function Q(a,x)=1-P(a,x) from the functions gser and gcf
 
 void gser(double* gamser, double a, double x, double* gln); // Computes the incomplete gamma function P(a,x), calculated by its series representation
 
 void gcf(double* gammcf, double a, double x, double* gln); // Computes the incomplete gamma function Q(a,x), calculated by its continued fraction representation
+
+double erffc(double x); // 1 - erf(x)
 
 // Fitting Functions
 
@@ -87,6 +97,10 @@ void residuals(std::vector<double>& x, std::vector<double>& y, std::vector<doubl
 // Fit a Lorentzian to a data set
 extern "C" _declspec(dllexport) void Lorentz_Fit(int n_data, double freq_data[], double spctrm_data[], double fit_data[], int n_pars, double a_pars[], int n_stats, double gof_stats[]);
 
+// Fit a Gaussian to a data set
 extern "C" _declspec(dllexport) void Gauss_Fit(int n_data, double freq_data[], double spctrm_data[], double fit_data[], int n_pars, double a_pars[], int n_stats, double gof_stats[]);
+
+// Fit a Gaussian to a data set
+extern "C" _declspec(dllexport) void Voigt_Fit(int n_data, double freq_data[], double spctrm_data[], double fit_data[], int n_pars, double a_pars[], int n_stats, double gof_stats[], double *HWHM);
 
 extern "C" _declspec(dllexport) void Testing();
