@@ -328,6 +328,32 @@ void Voigt(double x, std::vector<double>& a, double* y, std::vector<double>& dyd
 	}
 }
 
+void diode_voltage(double x, std::vector<double>& a, double* y, std::vector<double>& dyda, int& na)
+{
+	// function that computes the diode voltage *y for input current x = I [mA]
+	// a stores diode parameters a = { eta, T, Is }
+	// a[0] = eta, a[1] = T, a[2] = Is
+	// diode voltage value is given by *y
+	// dyda is array that stores value of derivative of diode voltage function wrt each parameter in a
+	// Dimensions of the arrays are a[0..na-1], dyda[0..na-1]
+	// na is no. parameters
+	// R. Sheehan 19 - 10 - 2021
+
+	try {
+		double Tkelvin = 273.15 + a[1]; // convert temperature to Kelvin and multiply by ( k_{B} / q )
+		double Tterm = 8.61733e-5 * Tkelvin;
+		double Iratio = (x / a[2]);
+		double arg = 1.0 + Iratio; // compute term I_{d} / I_{s}
+		*y = a[0] * Tterm * log(arg); // eta * Tterm * log ( 1 + I_{d} / I_{s} )
+		dyda[0] = *y / a[0]; // \partial V_{d} / \partial \eta
+		dyda[1] = *y / Tkelvin; // \partial V_{d} / \partial T
+		dyda[2] = (-1.0 * a[0] * Tterm * Iratio) / (a[2] * arg); // \partial V_{d} / I_{s}
+	}
+	catch (std::invalid_argument& e) {
+		std::cerr << e.what();
+	}
+}
+
 void Voigt_HWHM(double xlow, double xhigh, std::vector<double>& a, int& na, double* HWHM, bool loud)
 {
 	// determine the HWHM of a Voigt function with the parameter set defined in a
@@ -1406,6 +1432,87 @@ void Voigt_Fit(int n_data, double freq_data[], double spctrm_data[], double fit_
 	// store the computed model values
 	for (int i = 0; i < n_data; i++) {
 		fit_data[i] = convert_mW_to_dBm(data[3][i] / scale_fac); // convert from mW to dBm scale
+	}
+
+	// store the computed fit parameters
+	for (int i = 0; i < n_pars; i++) {
+		a_pars[i] = a_guess[i];
+	}
+
+	// store the computed fit statistics
+	gof_stats[0] = chisqr; gof_stats[1] = chisqr / dof; gof_stats[2] = rsqr; gof_stats[3] = gof;
+
+	// release memory
+	x.clear(); y.clear(); sig.clear(); data.clear();
+	a_guess.clear(); ia.clear();
+	covar.clear(); alpha.clear();
+}
+
+void Diode_Fit(int n_data, double current_data[], double voltage_data[], double fit_data[], int n_pars, double a_pars[], int n_stats, double gof_stats[])
+{
+	// Use non-lin-fit to fit the Diode equation to a set of IV data
+	// n_data is no. of data points in measurement
+	// current_data[] is an array holding the frequency data, assumed to be in units of mA
+	// voltage_data[] is an array holding the measured ESA spectral data, assumed to be in units of V
+	// fit_data[] is an array that will store the computed values of the fitted model on output, assumed to be in units of V
+	// n_pars is the no. of fitting parameters, 3 in the case of the Diode fit
+	// a[] = {eta, T, I_{s}} is an array holding initial estimates of the fit parameters, this will be overwritten 
+	// with the fitted values on output
+	// n_stats is the number of goodness of fit statistics that are computed
+	// gof_stats[] = {chi^{2} value for fit, chi^{2} / nu, R^{2} coefficient, gof probability } is an array that will store the computed goodness of fit stats on output
+	// R. Sheehan 13 - 12 - 2021
+
+	// Declare various parameters
+	int ITMAX = 10;
+
+	double TOL = 0.001;
+	double chisq = 0.0;
+
+	// Create std::vector for computing the fits
+	std::vector<double> x(n_data, 0.0);
+	std::vector<double> y(n_data, 0.0);
+	std::vector<double> sig(n_data, 0.0);
+
+	// Declare the necessary arrays
+	std::vector<std::vector<double>> covar = array_2D(n_pars, n_pars);
+	std::vector<std::vector<double>> alpha = array_2D(n_pars, n_pars);
+
+	std::vector<std::vector<double>> data;
+
+	// define the initial guesses to the parameters to be determined
+	std::vector<double> a_guess(n_pars, 0.0);
+	std::vector<int> ia(n_pars, 1); // tell the algorithm that you want to locate all parameters
+
+	// store the data in the vector containers
+	double spread = 0.05; 
+	for (int i = 0; i < n_data; i++) {
+		x[i] = current_data[i]; // read in current data for I > 0 mA
+		y[i] = voltage_data[i]; // store voltage data
+		sig[i] = spread * voltage_data[i]; // estimate error in voltage reading
+	}
+
+	// store the initial guesses
+	ia[1] = 0; // no sense in trying to fit to the temperature since you know its value already
+	for (int i = 0; i < n_pars; i++) {
+		a_guess[i] = a_pars[i];
+	}
+
+	// perform the fit process
+	bool loud = false;
+
+	non_lin_fit(x, y, sig, n_data, a_guess, ia, n_pars, covar, alpha, &chisq, diode_voltage, ITMAX, TOL, loud);
+
+	// compute the residuals
+	residuals(x, y, sig, n_data, a_guess, n_pars, diode_voltage, data);
+
+	// take a look at the goodness of fit statistics
+	double chisqr = 0.0, rsqr = 0.0, dof = static_cast<int>(n_data - n_pars), gof = 0.0;
+
+	goodness_of_fit(x, y, data[4], n_data, a_guess, n_pars, diode_voltage, &chisqr, &dof, &rsqr, &gof, loud);
+
+	// store the computed model values
+	for (int i = 0; i < n_data; i++) {
+		fit_data[i] = data[3][i]; // convert from mW to dBm scale
 	}
 
 	// store the computed fit parameters
