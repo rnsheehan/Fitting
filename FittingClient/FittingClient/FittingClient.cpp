@@ -252,7 +252,7 @@ void Lorentzian_data_fit_test()
 	std::cout << "coefficient of determination = " << gof_stats[2] << "\n\n";
 
 	// see computed fit values
-	filename = "Computed_Fit_Values.txt"; 
+	filename = "Computed_Fit_Values_Lorentzian.txt"; 
 
 	std::vector<double> fit_vals; 
 	for (int i = 0; i < npts; i++)fit_vals.push_back(fit_data[i]); 
