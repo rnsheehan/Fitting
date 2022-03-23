@@ -463,6 +463,33 @@ void Voigt_HWHM(double xlow, double xhigh, std::vector<double>& a, int& na, doub
 	}
 }
 
+void Ring_Down(double x, std::vector<double>& a, double* y, std::vector<double>& dyda, int& na)
+{
+	// Definition of the model used to approximate a gas ring down process
+	// a stores Ring Down parameters a = { A, tau, B}
+	// a[0] = A, a[1] = tau, a[2] = B
+	// A is an amplitude fitting factor usually expressed in units of mV
+	// tau is the Ring Down characterisation time usually expressed in units of us
+	// B is an offset from zero parameter usually expressed in units of mV
+	// Ring_Down value is given by *y
+	// dyda is array that stores value of derivative of Ring_Down function wrt each parameter in a
+	// Dimensions of the arrays are a[0..na-1], dyda[0..na-1]
+	// na is no. parameters
+	// R. Sheehan 16 - 3 - 2021
+
+	try {
+		double arg = x / a[1]; // ( t / tau )
+		double exp_arg = exp(-1.0 * arg); // exp( -( t / tau ) )
+		*y = (a[0] * exp_arg) + a[2]; // R = A exp( -(t / tau) ) + B
+		dyda[1] = (a[0] / a[1]) * arg * exp_arg; // \partial R / \partial tau
+		dyda[0] = exp_arg; // \partial R / \partial A
+		dyda[2] = 1.0; // \partial T / \partial B
+	}
+	catch (std::invalid_argument& e) {
+		std::cerr << e.what();
+	}
+}
+
 // Probability Functions
 
 double gammln(double xx)
@@ -1452,8 +1479,8 @@ void Diode_Fit(int n_data, double current_data[], double voltage_data[], double 
 {
 	// Use non-lin-fit to fit the Diode equation to a set of IV data
 	// n_data is no. of data points in measurement
-	// current_data[] is an array holding the frequency data, assumed to be in units of mA
-	// voltage_data[] is an array holding the measured ESA spectral data, assumed to be in units of V
+	// current_data[] is an array holding the current data, assumed to be in units of mA
+	// voltage_data[] is an array holding the measured diode voltage data, assumed to be in units of V
 	// fit_data[] is an array that will store the computed values of the fitted model on output, assumed to be in units of V
 	// n_pars is the no. of fitting parameters, 3 in the case of the Diode fit
 	// a[] = {eta, T, I_{s}} is an array holding initial estimates of the fit parameters, this will be overwritten 
@@ -1509,6 +1536,86 @@ void Diode_Fit(int n_data, double current_data[], double voltage_data[], double 
 	double chisqr = 0.0, rsqr = 0.0, dof = static_cast<int>(n_data - n_pars), gof = 0.0;
 
 	goodness_of_fit(x, y, data[4], n_data, a_guess, n_pars, diode_voltage, &chisqr, &dof, &rsqr, &gof, loud);
+
+	// store the computed model values
+	for (int i = 0; i < n_data; i++) {
+		fit_data[i] = data[3][i]; // convert from mW to dBm scale
+	}
+
+	// store the computed fit parameters
+	for (int i = 0; i < n_pars; i++) {
+		a_pars[i] = a_guess[i];
+	}
+
+	// store the computed fit statistics
+	gof_stats[0] = chisqr; gof_stats[1] = chisqr / dof; gof_stats[2] = rsqr; gof_stats[3] = gof;
+
+	// release memory
+	x.clear(); y.clear(); sig.clear(); data.clear();
+	a_guess.clear(); ia.clear();
+	covar.clear(); alpha.clear();
+}
+
+void Ring_Down_Fit(int n_data, double time_data[], double voltage_data[], double fit_data[], int n_pars, double a_pars[], int n_stats, double gof_stats[])
+{
+	// Use non-lin-fit to fit the Ring-Down model equation to a set of time-voltage data
+	// n_data is no. of data points in measurement
+	// time_data[] is an array holding the frequency data, assumed to be in units of us
+	// voltage_data[] is an array holding the measured ring down decay data, assumed to be in units of mV
+	// fit_data[] is an array that will store the computed values of the fitted model on output, assumed to be in units of mV
+	// n_pars is the no. of fitting parameters, 3 in the case of the Ring Model fit
+	// a[] = {A, tau, B} is an array holding initial estimates of the fit parameters, this will be overwritten 
+	// with the fitted values on output
+	// n_stats is the number of goodness of fit statistics that are computed
+	// gof_stats[] = {chi^{2} value for fit, chi^{2} / nu, R^{2} coefficient, gof probability } is an array that will store the computed goodness of fit stats on output
+	// R. Sheehan 23 - 3 - 2022
+
+	// Declare various parameters
+	int ITMAX = 10;
+
+	double TOL = 0.001;
+	double chisq = 0.0;
+
+	// Create std::vector for computing the fits
+	std::vector<double> x(n_data, 0.0);
+	std::vector<double> y(n_data, 0.0);
+	std::vector<double> sig(n_data, 0.0);
+
+	// Declare the necessary arrays
+	std::vector<std::vector<double>> covar = array_2D(n_pars, n_pars);
+	std::vector<std::vector<double>> alpha = array_2D(n_pars, n_pars);
+
+	std::vector<std::vector<double>> data;
+
+	// define the initial guesses to the parameters to be determined
+	std::vector<double> a_guess(n_pars, 0.0);
+	std::vector<int> ia(n_pars, 1); // tell the algorithm that you want to locate all parameters
+
+	// store the data in the vector containers
+	double spread = 0.05;
+	for (int i = 0; i < n_data; i++) {
+		x[i] = time_data[i]; // read in current data for I > 0 mA
+		y[i] = voltage_data[i]; // store voltage data
+		sig[i] = spread * voltage_data[i]; // estimate error in voltage reading
+	}
+
+	// store the initial guesses
+	for (int i = 0; i < n_pars; i++) {
+		a_guess[i] = a_pars[i];
+	}
+
+	// perform the fit process
+	bool loud = false;
+
+	non_lin_fit(x, y, sig, n_data, a_guess, ia, n_pars, covar, alpha, &chisq, Ring_Down, ITMAX, TOL, loud);
+
+	// compute the residuals
+	residuals(x, y, sig, n_data, a_guess, n_pars, Ring_Down, data);
+
+	// take a look at the goodness of fit statistics
+	double chisqr = 0.0, rsqr = 0.0, dof = static_cast<int>(n_data - n_pars), gof = 0.0;
+
+	goodness_of_fit(x, y, data[4], n_data, a_guess, n_pars, Ring_Down, &chisqr, &dof, &rsqr, &gof, loud);
 
 	// store the computed model values
 	for (int i = 0; i < n_data; i++) {
