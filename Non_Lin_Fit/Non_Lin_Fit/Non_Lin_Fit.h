@@ -59,6 +59,8 @@ void Voigt(double x, std::vector<double>& a, double* y, std::vector<double>& dyd
 
 void diode_voltage(double x, std::vector<double>& a, double* y, std::vector<double>& dyda, int& na);
 
+void resistive_diode_voltage(double x, std::vector<double>& a, double* y, std::vector<double>& dyda, int& na); 
+
 void Voigt_HWHM(double xlow, double xhigh, std::vector<double>& a, int& na, double* HWHM, bool loud = false); 
 
 void Ring_Down(double x, std::vector<double>& a, double* y, std::vector<double>& dyda, int& na);
@@ -108,6 +110,8 @@ extern "C" _declspec(dllexport) void Gauss_Fit(int n_data, double freq_data[], d
 extern "C" _declspec(dllexport) void Voigt_Fit(int n_data, double freq_data[], double spctrm_data[], double fit_data[], int n_pars, double a_pars[], int n_stats, double gof_stats[], double *HWHM);
 
 extern "C" _declspec(dllexport) void Diode_Fit(int n_data, double current_data[], double voltage_data[], double fit_data[], int n_pars, double a_pars[], int n_stats, double gof_stats[]);
+
+extern "C" _declspec(dllexport) void Resistive_Diode_Fit(int n_data, double current_data[], double voltage_data[], double fit_data[], int n_pars, double a_pars[], int n_stats, double gof_stats[]);
 
 extern "C" _declspec(dllexport) void Ring_Down_Fit(int n_data, double time_data[], double voltage_data[], double fit_data[], int n_pars, double a_pars[], int n_stats, double gof_stats[]);
 
