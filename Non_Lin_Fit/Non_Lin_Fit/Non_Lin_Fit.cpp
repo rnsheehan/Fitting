@@ -33,11 +33,11 @@ double convert_dBm_to_mW(double dBm_val)
 double convert_mW_to_dBm(double mW_val)
 {
 	// convert a mW power reading to dBm power reading
-	if (mW_val > 1.0e-9) {
+	if (mW_val > 1.0e-10) {
 		return 10.0 * log10(mW_val); 
 	}
 	else {
-		return -90.0; 
+		return -100.0; 
 	}
 }   
 
