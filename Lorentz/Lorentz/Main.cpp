@@ -169,7 +169,8 @@ void Compute_Spectrum(std::string& res_file, interval& spctr_rng, std::vector<do
 				double spctr_val = 0.0; 
 				for (int i = 0; i < spctr_rng.get_Nsteps(); i++) {
 					Lorentzian(fval, spctr_pars, &spctr_val, dyda, npars);
-					write << std::setprecision(10) << fval << " , " << spctr_val << " , " << -dyda[1] << "\n"; 
+					//write << std::setprecision(10) << fval << " , " << spctr_val << " , " << -dyda[1] << "\n"; 
+					write << std::setprecision(10) << fval << " , " << spctr_val << "\n"; 
 					fval += delta_f; 
 				}
 				write.close(); 
