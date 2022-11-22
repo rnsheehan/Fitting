@@ -18,13 +18,7 @@
     <ClCompile Include="Main.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
-    <ClCompile Include="Faddeeva.cc">
-      <Filter>Source Files</Filter>
-    </ClCompile>
     <ClCompile Include="Useful.cpp">
-      <Filter>Source Files</Filter>
-    </ClCompile>
-    <ClCompile Include="Probability_Functions.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
   </ItemGroup>
@@ -32,16 +26,10 @@
     <ClInclude Include="Attach.h">
       <Filter>Header Files</Filter>
     </ClInclude>
-    <ClInclude Include="Faddeeva.hh">
-      <Filter>Header Files</Filter>
-    </ClInclude>
-    <ClInclude Include="Useful.h">
-      <Filter>Header Files</Filter>
-    </ClInclude>
     <ClInclude Include="Templates.h">
       <Filter>Header Files</Filter>
     </ClInclude>
-    <ClInclude Include="Probability_Functions.h">
+    <ClInclude Include="Useful.h">
       <Filter>Header Files</Filter>
     </ClInclude>
   </ItemGroup>

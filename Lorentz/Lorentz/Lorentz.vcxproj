@@ -21,8 +21,8 @@
   <PropertyGroup Label="Globals">
     <VCProjectVersion>16.0</VCProjectVersion>
     <Keyword>Win32Proj</Keyword>
-    <ProjectGuid>{cbda3958-5364-4bcb-874d-ff6b09b1c552}</ProjectGuid>
-    <RootNamespace>Voigt</RootNamespace>
+    <ProjectGuid>{ce83cfa1-3efb-4d72-b490-5cfafeede57a}</ProjectGuid>
+    <RootNamespace>Lorentz</RootNamespace>
     <WindowsTargetPlatformVersion>10.0</WindowsTargetPlatformVersion>
   </PropertyGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.Default.props" />
@@ -139,15 +139,11 @@
     </Link>
   </ItemDefinitionGroup>
   <ItemGroup>
-    <ClCompile Include="Faddeeva.cc" />
     <ClCompile Include="Main.cpp" />
-    <ClCompile Include="Probability_Functions.cpp" />
     <ClCompile Include="Useful.cpp" />
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="Attach.h" />
-    <ClInclude Include="Faddeeva.hh" />
-    <ClInclude Include="Probability_Functions.h" />
     <ClInclude Include="Templates.h" />
     <ClInclude Include="Useful.h" />
   </ItemGroup>

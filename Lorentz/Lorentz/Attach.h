@@ -54,7 +54,5 @@ static const int HWHM_CALC = 5002;
 
 #include "Templates.h"
 #include "Useful.h"
-#include "Faddeeva.hh"
-#include "Probability_Functions.h"
 
 #endif
