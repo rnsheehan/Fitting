@@ -107,7 +107,7 @@ extern "C" _declspec(dllexport) void Lorentz_Fit(int n_data, double freq_data[],
 extern "C" _declspec(dllexport) void Gauss_Fit(int n_data, double freq_data[], double spctrm_data[], double fit_data[], int n_pars, double a_pars[], int n_stats, double gof_stats[]);
 
 // Fit a Voigt profile to a data set
-extern "C" _declspec(dllexport) void Voigt_Fit(int n_data, double freq_data[], double spctrm_data[], double fit_data[], int n_pars, double a_pars[], int n_stats, double gof_stats[], double *HWHM);
+extern "C" _declspec(dllexport) void Voigt_Fit(int n_data, double freq_data[], double spctrm_data[], double fit_data[], int n_pars, double a_pars[], int n_stats, double gof_stats[], double *HWHM, int ReScale);
 
 extern "C" _declspec(dllexport) void Diode_Fit(int n_data, double current_data[], double voltage_data[], double fit_data[], int n_pars, double a_pars[], int n_stats, double gof_stats[]);
 

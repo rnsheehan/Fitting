@@ -415,7 +415,7 @@ void Voigt_HWHM(double xlow, double xhigh, std::vector<double>& a, int& na, doub
 		bool c1 = xhigh > xlow ? true : false;
 		bool c2 = xlow > 0 ? true : false;
 		bool c3 = a[3] > 0 ? true : false;
-		bool c10 = c1 && c2;
+		bool c10 = c1 && c3;
 
 		if (c10) {
 			int count = 0, MAXIT = 50; // max. no iterations of bisection method
@@ -1275,7 +1275,7 @@ void Lorentz_Fit(int n_data, double freq_data[], double spctrm_data[], double fi
 	// spctrm_data[] is an array holding the measured ESA spectral data, assumed to be in units of dBm
 	// fit_data[] is an array that will store the computed values of the fitted model on output, assumed to be in units of dBm
 	// n_pars is the no. of fitting parameters, 3 in the case of the Lorentz fit
-	// a[] = {A, f_{0}, HWHM} is an array holding initial estimates of the fit parameters, this will be overwritten 
+	// a_pars[] = {A, f_{0}, HWHM} is an array holding initial estimates of the fit parameters, this will be overwritten 
 	// with the fitted values on output
 	// n_stats is the number of goodness of fit statistics that are computed
 	// gof_stats[] = {chi^{2} value for fit, chi^{2} / nu, R^{2} coefficient, gof probability } is an array that will store the computed goodness of fit stats on output
@@ -1306,7 +1306,7 @@ void Lorentz_Fit(int n_data, double freq_data[], double spctrm_data[], double fi
 	double spread = 0.05; 
 	double scale_fac = 1.0e+6; 
 	for (int i = 0; i < n_data; i++) {
-		x[i] = freq_data[i]; 
+		x[i] = freq_data[i];
 		y[i] = scale_fac * convert_dBm_to_mW( spctrm_data[i] ); // convert from dBm scale to mW scale
 		sig[i] = spread * y[i];
 	}
@@ -1429,7 +1429,7 @@ void Gauss_Fit(int n_data, double freq_data[], double spctrm_data[], double fit_
 	covar.clear(); alpha.clear();
 }
 
-void Voigt_Fit(int n_data, double freq_data[], double spctrm_data[], double fit_data[], int n_pars, double a_pars[], int n_stats, double gof_stats[], double* HWHM)
+void Voigt_Fit(int n_data, double freq_data[], double spctrm_data[], double fit_data[], int n_pars, double a_pars[], int n_stats, double gof_stats[], double* HWHM, int ReScale)
 {
 	// Use non-lin-fit to fit the Voigt model to a set of RSA spectrum data
 	// n_data is no. of data points in measurement
@@ -1442,6 +1442,7 @@ void Voigt_Fit(int n_data, double freq_data[], double spctrm_data[], double fit_
 	// n_stats is the number of goodness of fit statistics that are computed
 	// gof_stats[] = {chi^{2} value for fit, chi^{2} / nu, R^{2} coefficient, gof probability } is an array that will store the computed goodness of fit stats on output
 	// HWHM will store the computed Voigt profile HWHM
+	// ReScale == 1 ->  frq data has been converted to kHz -> reduce size of fitting space
 	// R. Sheehan 1 - 12 - 2021
 
 	// Declare various parameters
@@ -1475,6 +1476,7 @@ void Voigt_Fit(int n_data, double freq_data[], double spctrm_data[], double fit_
 	}
 
 	// store the initial guesses
+	ia[0] = ReScale == 1 ? 0 : 1; // reduce size of fit space if working on kHz scale
 	ia[1] = 0; // no sense in trying to fit to the centre frequency since you know its value already
 	for (int i = 0; i < n_pars; i++) {
 		a_guess[i] = a_pars[i];
@@ -1486,7 +1488,7 @@ void Voigt_Fit(int n_data, double freq_data[], double spctrm_data[], double fit_
 	non_lin_fit(x, y, sig, n_data, a_guess, ia, n_pars, covar, alpha, &chisq, Voigt, ITMAX, TOL, loud);
 
 	// compute the Voigt HWHM
-	double xlow = a_guess[1], xhigh = xlow + 10;
+	double xlow = a_guess[1], xhigh = x[n_data - 1];
 
 	Voigt_HWHM(xlow, xhigh, a_guess, n_pars, HWHM);
 
