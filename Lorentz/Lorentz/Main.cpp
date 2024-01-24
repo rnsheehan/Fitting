@@ -4,9 +4,9 @@
 
 // Command line approach for computing the Lorentz spectrum and the Lorentz HWHM
 // There are two options 
-// 1. Enter command Lorentz fh fc fs fg flow fhigh Nsteps filename to compute a Lorentz spectrum based on Voigt parameters fh fc fs fg 
+// 1. Enter command Lorentz fh fc fs flow fhigh Nsteps filename to compute a Lorentz spectrum based on Lorentz parameters fh fc fs 
 // in the range [flow, fhigh] with results stored in the file filename
-// 2. Enter command Lorentz fh fc fs fg filename to determine the 3dB HWHM and the 20dB down HW of the Lorentz spectrum based on parameters fh fc fs fg
+// 2. Enter command Lorentz fh fc fs filename to determine the 3dB HWHM and the 20dB down HW of the Lorentz spectrum based on parameters fh fc fs
 // Computed results are output to a file
 // R. Sheehan 22 - 11 - 2022
 
@@ -21,9 +21,9 @@ int main(int argc, char* argv[])
 {
 	// run program from command line
 	// there will be two options
-	// 1. Enter command Lorentz fh fc fs flow fhigh Nsteps filename to compute a VOIGT spectrum based on Voigt parameters fh fc fs
+	// 1. Enter command Lorentz fh fc fs flow fhigh Nsteps filename to compute a Lorentz spectrum based on Voigt parameters fh fc fs
 	// in the range [flow, fhigh] with results stored in the file filename
-	// 2. Enter command Lorentz fh fc fs filename to determine the 3dB HWHM and the 20dB down HW of the VOigt spectrum based on parameters fh fc fs
+	// 2. Enter command Lorentz fh fc fs filename to determine the 3dB HWHM and the 20dB down HW of the Lorentz spectrum based on parameters fh fc fs
 	try {
 		if (argc > 1) {
 			int npars = 3; 
